@@ -7,14 +7,14 @@
 
 namespace Task4ge.Server.Database
 {
-    using Task4ge.Server.Database.Model;
     using Microsoft.EntityFrameworkCore;
     using MongoDB.EntityFrameworkCore.Extensions;
+    using Task4ge.Server.Database.Model;
 
     public class Context(DbContextOptions options) : DbContext(options)
     {
         #region Properties
-        public DbSet<Product> Products { get; init; }
+        public DbSet<Task> Tasks { get; init; }
         #endregion
 
         #region Methods
@@ -23,8 +23,8 @@ namespace Task4ge.Server.Database
             // Base
             base.OnModelCreating(modelBuilder);
 
-            // Products
-            modelBuilder.Entity<Product>().ToCollection("products");
+            // Tasks
+            modelBuilder.Entity<Task>().ToCollection("tasks");
         }
         #endregion
     }

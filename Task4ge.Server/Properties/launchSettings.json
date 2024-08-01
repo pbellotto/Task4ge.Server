@@ -18,7 +18,8 @@
       "environmentVariables": {
         "ASPNETCORE_ENVIRONMENT": "Development",
         "CORS_ORIGIN_1": "http://localhost:3000",
-        "DB_CERTIFICATE_PATH": "./Certificates/X509-cert-4597378814442127764.pem",
+        "DB_CERTIFICATE_PATH": "./Certificates/cert.pfx",
+        "DB_CERTIFICATE_KEY": "12345",
         "DB_CONNECTION_TIMEOUT_MS": "8000",
         "JWT_PRIVATE_KEY": "fedaf7d8863b48e197b9287d492b708e",
         "LOGS_DIRECTORY_PATH": "./Logs",
@@ -38,7 +39,8 @@
       "environmentVariables": {
         "ASPNETCORE_ENVIRONMENT": "Development",
         "CORS_ORIGIN_1": "http://localhost:3000",
-        "DB_CERTIFICATE_PATH": "./Certificates/X509-cert-4597378814442127764.pem",
+        "DB_CERTIFICATE_PATH": "./Certificates/cert.pfx",
+        "DB_CERTIFICATE_KEY": "12345",
         "DB_CONNECTION_TIMEOUT_MS": "8000",
         "JWT_PRIVATE_KEY": "fedaf7d8863b48e197b9287d492b708e",
         "LOGS_DIRECTORY_PATH": "./Logs",
@@ -56,7 +58,8 @@
       "environmentVariables": {
         "ASPNETCORE_ENVIRONMENT": "Development",
         "CORS_ORIGIN_1": "http://localhost:3000",
-        "DB_CERTIFICATE_PATH": "./Certificates/X509-cert-4597378814442127764.pem",
+        "DB_CERTIFICATE_PATH": "./Certificates/cert.pfx",
+        "DB_CERTIFICATE_KEY": "12345",
         "DB_CONNECTION_TIMEOUT_MS": "8000",
         "JWT_PRIVATE_KEY": "fedaf7d8863b48e197b9287d492b708e",
         "LOGS_DIRECTORY_PATH": "./Logs",

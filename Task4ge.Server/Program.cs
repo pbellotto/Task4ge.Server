@@ -15,13 +15,14 @@ namespace Task4ge.Server
     using Microsoft.EntityFrameworkCore;
     using Microsoft.IdentityModel.Logging;
     using Microsoft.IdentityModel.Tokens;
+    using Microsoft.OpenApi.Models;
     using MongoDB.Bson;
     using MongoDB.Driver;
     using Serilog;
     using Serilog.Events;
     using Serilog.Formatting.Compact;
     using Task4ge.Server.Database;
-    using Task4ge.Server.Dto.Product;
+    using Task4ge.Server.Dto.Task;
     using Task4ge.Server.UserManagement;
     using Task4ge.Server.Utils;
 
@@ -102,7 +103,17 @@ namespace Task4ge.Server
                     .AddMemoryCache()
                     .AddResponseCaching()
                     .AddEndpointsApiExplorer()
-                    .AddSwaggerGen();
+                    .AddSwaggerGen(x =>
+                        {
+                            x.SwaggerDoc(
+                                "v1",
+                                new OpenApiInfo
+                                {
+                                    Title = "Task4ge.API - V1",
+                                    Version = "v1"
+                                }
+                             );
+                        });
 
                 // CORS
                 builder.Services

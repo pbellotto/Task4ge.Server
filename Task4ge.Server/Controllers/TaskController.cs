@@ -1,5 +1,5 @@
 //------------------------------------------------------------------------------
-// <copyright file="ProductController.cs" company="DevConn">
+// <copyright file="TaskController.cs" company="DevConn">
 //     Copyright (c) 2023 DevConn Software. All rights reserved.
 // </copyright>                                                                
 // <owner current="true" primary="true">pbellotto</owner>
@@ -17,18 +17,18 @@ namespace Task4ge.Server.Controllers
     using Microsoft.EntityFrameworkCore.ChangeTracking;
     using Task4ge.Server.Database;
     using Task4ge.Server.Database.Model;
-    using Task4ge.Server.Dto.Product;
+    using Task4ge.Server.Dto.Task;
     using Task4ge.Server.UserManagement;
 
     [ApiController]
     [Route("[controller]")]
     [Produces(MediaTypeNames.Application.Json, "application/problem+json")]
-    public class ProductController(ILogger<ProductController> logger, Context context, IValidator<Product> validator, IAuth0Api auth0Api) : ControllerBase
+    public class TaskController(ILogger<TaskController> logger, Context context, IValidator<Task> validator, IAuth0Api auth0Api) : ControllerBase
     {
         #region Fields
-        private readonly ILogger<ProductController> _logger = logger;
+        private readonly ILogger<TaskController> _logger = logger;
         private readonly Context _context = context;
-        private readonly IValidator<Product> _validator = validator;
+        private readonly IValidator<Task> _validator = validator;
         private readonly IAuth0Api _auth0Api = auth0Api;
         #endregion
 
@@ -41,11 +41,11 @@ namespace Task4ge.Server.Controllers
         [Authorize]
         public async Task<IActionResult> Get(string id)
         {
-            var product = await this._context.Products
+            var task = await this._context.Tasks
                 .Where(x => x.Id == id.Trim())
                 .OrderByDescending(x => x.Id)
                 .FirstOrDefaultAsync();
-            if (product is null)
+            if (task is null)
             {
                 return this.NotFound();
             }
@@ -53,18 +53,11 @@ namespace Task4ge.Server.Controllers
             return this.Ok(
                 new
                 {
-                    product.Id,
-                    product.CreatedAt,
-                    product.UpdatedAt,
-                    product.Name,
-                    product.Description,
-                    product.Category,
-                    product.Unit,
-                    product.Quantity,
-                    product.Images,
-                    product.Price,
-                    product.Proof,
-                    product.Ingredients,
+                    task.Id,
+                    task.CreatedAt,
+                    task.UpdatedAt,
+                    task.Name,
+                    task.Description,
                 });
         }
 
@@ -77,36 +70,29 @@ namespace Task4ge.Server.Controllers
                 return this.BadRequest();
             }
 
-            Product product =
+            Task task =
                 new()
                 {
                     CreatedAt = DateTime.Now,
                     UpdatedAt = DateTime.Now,
                     Name = request.Name,
                     Description = request.Description,
-                    Category = request.Category,
-                    Unit = request.Unit,
-                    Quantity = request.Quantity,
-                    Images = request.Images,
-                    Price = request.Price,
-                    Proof = request.Proof,
-                    Ingredients = request.Ingredients,
                 };
-            ValidationResult validation = await this._validator.ValidateAsync(product);
+            ValidationResult validation = await this._validator.ValidateAsync(task);
             if (!validation.IsValid)
             {
-                return await Task.FromResult(this.ValidationProblem(new ValidationProblemDetails(validation.ToDictionary())));
+                return this.ValidationProblem(new ValidationProblemDetails(validation.ToDictionary()));
             }
 
-            EntityEntry entry = await this._context.AddAsync(product);
+            EntityEntry entry = await this._context.AddAsync(task);
             await this._context.SaveChangesAsync();
-            Product savedProduct = (Product)entry.Entity;
+            Task savedTask = (Task)entry.Entity;
             return this.Ok(
                 new
                 {
-                    savedProduct.Id,
-                    savedProduct.CreatedAt,
-                    savedProduct.UpdatedAt,
+                    savedTask.Id,
+                    savedTask.CreatedAt,
+                    savedTask.UpdatedAt,
                 });
         }
         #endregion

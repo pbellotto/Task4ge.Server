@@ -8,16 +8,6 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <None Remove="Certificates\db-cert-production.pfx" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <Content Include="Certificates\db-cert-production.pfx">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
-  </ItemGroup>
-
-  <ItemGroup>
     <PackageReference Include="AspNetCore.HealthChecks.MongoDb" Version="8.0.1" />
     <PackageReference Include="Auth0.ManagementApi" Version="7.26.2" />
     <PackageReference Include="FluentValidation.AspNetCore" Version="11.3.0" />
