@@ -9,12 +9,15 @@ namespace Task4ge.Server.Controllers
 {
     using System.Net.Mime;
     using System.Security.Claims;
+    using Amazon.S3;
+    using Amazon.S3.Transfer;
     using FluentValidation;
     using FluentValidation.Results;
     using Microsoft.AspNetCore.Authorization;
     using Microsoft.AspNetCore.Mvc;
     using Microsoft.EntityFrameworkCore;
     using Microsoft.EntityFrameworkCore.ChangeTracking;
+    using MongoDB.Driver;
     using Task4ge.Server.Database;
     using Task4ge.Server.Database.Model;
     using Task4ge.Server.Dto.Task;
@@ -22,14 +25,14 @@ namespace Task4ge.Server.Controllers
 
     [ApiController]
     [Route("[controller]")]
-    [Produces(MediaTypeNames.Application.Json, "application/problem+json")]
-    public class TaskController(ILogger<TaskController> logger, Context context, IValidator<Task> validator, IAuth0Api auth0Api) : ControllerBase
+    [Produces(MediaTypeNames.Application.Json, MediaTypeNames.Application.ProblemJson)]
+    public class TaskController(ILogger<TaskController> logger, Context context, IAuth0Api auth0Api, IAmazonS3 amazonS3Client) : ControllerBase
     {
         #region Fields
         private readonly ILogger<TaskController> _logger = logger;
         private readonly Context _context = context;
-        private readonly IValidator<Task> _validator = validator;
         private readonly IAuth0Api _auth0Api = auth0Api;
+        private readonly IAmazonS3 _amazonS3Client = amazonS3Client;
         #endregion
 
         #region Properties
@@ -37,63 +40,167 @@ namespace Task4ge.Server.Controllers
         #endregion
 
         #region Methods
-        [HttpGet]
+        [HttpGet("{id}")]
         [Authorize]
+        [ProducesResponseType<GetResponse>(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
         public async Task<IActionResult> Get(string id)
         {
-            var task = await this._context.Tasks
+            var task = await _context.Tasks
                 .Where(x => x.Id == id.Trim())
                 .OrderByDescending(x => x.Id)
                 .FirstOrDefaultAsync();
             if (task is null)
             {
-                return this.NotFound();
+                return NotFound();
             }
 
-            return this.Ok(
-                new
+            return Ok(
+                new GetResponse()
                 {
-                    task.Id,
-                    task.CreatedAt,
-                    task.UpdatedAt,
-                    task.Name,
-                    task.Description,
+                    Id = task.Id,
+                    CreatedAt = task.CreatedAt,
+                    UpdatedAt = task.UpdatedAt,
+                    Name = task.Name,
+                    Description = task.Description,
+                    StartDate = task.StartDate,
+                    EndDate = task.EndDate,
+                    Completed = task.Completed
                 });
+        }
+
+        [HttpGet($"/{nameof(GetAll)}")]
+        [Authorize]
+        [ProducesResponseType<List<GetAllResponse>>(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        public async Task<IActionResult> GetAll()
+        {
+            var tasks = await _context.Tasks
+                .Select(x =>
+                    new GetAllResponse()
+                    {
+                        Id = x.Id,
+                        CreatedAt = x.CreatedAt,
+                        UpdatedAt = x.UpdatedAt,
+                        Name = x.Name,
+                        Description = x.Description,
+                        StartDate = x.StartDate,
+                        EndDate = x.EndDate,
+                        Completed = x.Completed
+                    })
+                .ToListAsync();
+            if (tasks is null)
+            {
+                return NotFound();
+            }
+
+            return Ok(tasks);
         }
 
         [HttpPost]
         [Authorize]
-        public async Task<IActionResult> Post([FromBody] PostRequest request)
+        [Consumes(MediaTypeNames.Multipart.FormData)]
+        [ProducesResponseType<PostResponse>(StatusCodes.Status201Created)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        public async Task<IActionResult> Post([FromForm] PostRequest request, [FromServices] PostRequest.Validator validator)
         {
-            if (request is null)
-            {
-                return this.BadRequest();
-            }
-
-            Task task =
-                new()
-                {
-                    CreatedAt = DateTime.Now,
-                    UpdatedAt = DateTime.Now,
-                    Name = request.Name,
-                    Description = request.Description,
-                };
-            ValidationResult validation = await this._validator.ValidateAsync(task);
+            ValidationResult validation = await validator.ValidateAsync(request);
             if (!validation.IsValid)
             {
-                return this.ValidationProblem(new ValidationProblemDetails(validation.ToDictionary()));
+                return ValidationProblem(new ValidationProblemDetails(validation.ToDictionary()));
             }
 
-            EntityEntry entry = await this._context.AddAsync(task);
-            await this._context.SaveChangesAsync();
-            Task savedTask = (Task)entry.Entity;
-            return this.Ok(
-                new
+            EntityEntry entry = await _context.AddAsync(
+                new Task()
                 {
-                    savedTask.Id,
-                    savedTask.CreatedAt,
-                    savedTask.UpdatedAt,
+                    User = this.User.Claims.FirstOrDefault(c => c.Type == ClaimTypes.NameIdentifier)!.Value,
+                    Name = request.Name,
+                    Description = request.Description,
+                    StartDate = request.StartDate,
+                    EndDate = request.EndDate
                 });
+            await _context.SaveChangesAsync();
+            Task savedTask = (Task)entry.Entity;
+            return CreatedAtAction(
+                nameof(Post),
+                new PostResponse()
+                {
+                    Id = savedTask.Id,
+                    CreatedAt = savedTask.CreatedAt,
+                    UpdatedAt = savedTask.UpdatedAt,
+                });
+        }
+
+        [HttpPut]
+        [Authorize]
+        [Consumes(MediaTypeNames.Multipart.FormData)]
+        [ProducesResponseType(StatusCodes.Status204NoContent)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        public async Task<IActionResult> Put([FromForm] PutRequest request, [FromServices] PutRequest.Validator validator)
+        {
+            ValidationResult validation = await validator.ValidateAsync(request);
+            if (!validation.IsValid)
+            {
+                return ValidationProblem(new ValidationProblemDetails(validation.ToDictionary()));
+            }
+
+            Task? existingTask = await _context.Tasks.FirstOrDefaultAsync(x => x.Id == request.Id);
+            if (existingTask is null)
+            {
+                return NotFound();
+            }
+
+            existingTask.UpdatedAt = DateTime.Now;
+            existingTask.Name = request.Name;
+            existingTask.Description = request.Description;
+            existingTask.StartDate = request.StartDate;
+            existingTask.EndDate = request.EndDate;
+            await _context.SaveChangesAsync();
+            return NoContent();
+        }
+
+        [HttpDelete("{id}")]
+        [Authorize]
+        [ProducesResponseType(StatusCodes.Status204NoContent)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        public async Task<IActionResult> Delete(string id)
+        {
+            Task? task = await _context.Tasks.FirstOrDefaultAsync(x => x.Id == id);
+            if (task is null)
+            {
+                return NotFound();
+            }
+
+            _context.Tasks.Remove(task);
+            await _context.SaveChangesAsync();
+            return NoContent();
+        }
+
+        private async Task<string> UploadImageToAmazonS3(Stream image)
+        {
+            TransferUtility fileTransferUtility = new(_amazonS3Client);
+            string key = Guid.NewGuid().ToString();
+            await fileTransferUtility.UploadAsync(
+                new()
+                {
+                    BucketName = "task4gebucket",
+                    Key = key,
+                    InputStream = image,
+                    ContentType = "image/jpeg",
+                    CannedACL = S3CannedACL.PublicRead,
+                });
+            return $"https://task4gebucket.s3.amazonaws.com/{key}";
         }
         #endregion
     }

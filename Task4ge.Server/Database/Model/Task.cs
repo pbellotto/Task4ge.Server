@@ -16,23 +16,36 @@ namespace Task4ge.Server.Database.Model
         #region Properties
         [BsonId]
         [BsonRequired]
-        [BsonRepresentation(BsonType.ObjectId)]
         [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
-        public string? Id { get; set; }
+        public string Id { get; set; } = string.Empty;
 
         [BsonRequired]
         [BsonDateTimeOptions(Kind = DateTimeKind.Utc, Representation = BsonType.Document)]
-        public DateTime CreatedAt { get; set; }
+        public DateTime CreatedAt { get; set; } = DateTime.Now;
 
         [BsonRequired]
         [BsonDateTimeOptions(Kind = DateTimeKind.Utc, Representation = BsonType.Document)]
-        public DateTime UpdatedAt { get; set; }
+        public DateTime UpdatedAt { get; set; } = DateTime.Now;
+
+        [BsonRequired]
+        public required string User { get; set; }
 
         [BsonRequired]
         public required string Name { get; set; }
 
         [BsonRequired]
         public required string Description { get; set; }
+
+        [BsonRequired]
+        [BsonDateTimeOptions(Kind = DateTimeKind.Utc, Representation = BsonType.Document)]
+        public DateTime? StartDate { get; set; }
+
+        [BsonRequired]
+        [BsonDateTimeOptions(Kind = DateTimeKind.Utc, Representation = BsonType.Document)]
+        public required DateTime EndDate { get; set; }
+
+        [BsonRequired]
+        public bool Completed { get; set; }
         #endregion
     }
 }

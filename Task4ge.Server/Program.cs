@@ -10,6 +10,9 @@ namespace Task4ge.Server
     using System.Diagnostics;
     using System.Security.Claims;
     using System.Text;
+    using Amazon;
+    using Amazon.Runtime;
+    using Amazon.S3;
     using FluentValidation;
     using Microsoft.AspNetCore.Authentication.JwtBearer;
     using Microsoft.EntityFrameworkCore;
@@ -17,6 +20,8 @@ namespace Task4ge.Server
     using Microsoft.IdentityModel.Tokens;
     using Microsoft.OpenApi.Models;
     using MongoDB.Bson;
+    using MongoDB.Bson.Serialization;
+    using MongoDB.Bson.Serialization.IdGenerators;
     using MongoDB.Driver;
     using Serilog;
     using Serilog.Events;
@@ -103,16 +108,35 @@ namespace Task4ge.Server
                     .AddMemoryCache()
                     .AddResponseCaching()
                     .AddEndpointsApiExplorer()
-                    .AddSwaggerGen(x =>
+                    .AddSwaggerGen(
+                        x =>
                         {
-                            x.SwaggerDoc(
-                                "v1",
-                                new OpenApiInfo
+                            x.SwaggerDoc("v1", new OpenApiInfo { Title = "Task4ge.API - v1", Version = "v1" });
+                            var jwtSecurityScheme =
+                                new OpenApiSecurityScheme
                                 {
-                                    Title = "Task4ge.API - V1",
-                                    Version = "v1"
-                                }
-                             );
+                                    BearerFormat = "JWT",
+                                    Name = "JWT Authentication",
+                                    In = ParameterLocation.Header,
+                                    Type = SecuritySchemeType.Http,
+                                    Scheme = JwtBearerDefaults.AuthenticationScheme,
+                                    Reference =
+                                        new OpenApiReference
+                                        {
+                                            Id = JwtBearerDefaults.AuthenticationScheme,
+                                            Type = ReferenceType.SecurityScheme
+                                        }
+                                };
+                            x.AddSecurityDefinition(jwtSecurityScheme.Reference.Id, jwtSecurityScheme);
+                            x.AddSecurityRequirement(
+                                new OpenApiSecurityRequirement()
+                                {
+                                    {
+                                        jwtSecurityScheme,
+                                        Array.Empty<string>()
+                                    }
+                                });
+                            x.CustomSchemaIds(type => type.FullName?.Replace("+", "."));
                         });
 
                 // CORS
@@ -151,6 +175,7 @@ namespace Task4ge.Server
                                 new TokenValidationParameters
                                 {
                                     ValidAlgorithms = ["RS256"],
+                                    ValidateIssuerSigningKey = true,
                                     IssuerSigningKeys = jwks.Keys,
                                     ValidateIssuer = true,
                                     NameClaimType = ClaimTypes.NameIdentifier
@@ -187,6 +212,7 @@ namespace Task4ge.Server
                                 .UseQueryTrackingBehavior(QueryTrackingBehavior.NoTracking)
                                 .EnableSensitiveDataLogging(Debugger.IsAttached);
                         });
+                BsonSerializer.RegisterIdGenerator(typeof(string), new StringObjectIdGenerator());
 
                 // Check DB connection
                 Log.Information("Checking database connection");
@@ -202,6 +228,12 @@ namespace Task4ge.Server
                 // Add validators
                 Log.Information("Adding validators");
                 builder.Services.AddValidatorsFromAssemblyContaining<PostRequest.Validator>(ServiceLifetime.Scoped);
+
+                // Configure AWS S3
+                Log.Information("Configuring AWS S3");
+                builder.Services.AddScoped<IAmazonS3>(_ => new AmazonS3Client(
+                    new BasicAWSCredentials(Environment.GetEnvironmentVariable("AWS_KEY_ID")!, Environment.GetEnvironmentVariable("AWS_KEY_SECRET")!),
+                    RegionEndpoint.USEast1));
 
                 // Build application
                 Log.Information("Building application");
@@ -230,7 +262,16 @@ namespace Task4ge.Server
                 app.UseCors(ALLOW_SPECIFIC_ORIGINS_POLICY);
                 app.UseAuthentication();
                 app.UseAuthorization();
-                app.MapControllers();
+                switch (app.Environment.IsDevelopment())
+                {
+                    case true:
+                        app.MapControllers().AllowAnonymous();
+                        break;
+
+                    default:
+                        app.MapControllers();
+                        break;
+                }
 
                 // Run app
                 await app.RunAsync();
