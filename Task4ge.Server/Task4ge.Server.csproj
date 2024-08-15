@@ -22,9 +22,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Compile Update="HealthChecks\GCInfo\GCInfoOptions.cs">
-      <DependentUpon>GCInfoHealthCheck.cs</DependentUpon>
-    </Compile>
     <Compile Update="UserManagement\Auth0Api.cs">
       <DependentUpon>IAuth0Api.cs</DependentUpon>
     </Compile>
