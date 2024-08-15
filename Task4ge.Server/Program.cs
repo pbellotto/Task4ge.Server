@@ -16,6 +16,7 @@ namespace Task4ge.Server
     using FluentValidation;
     using Microsoft.AspNetCore.Authentication.JwtBearer;
     using Microsoft.EntityFrameworkCore;
+    using Microsoft.Extensions.Configuration;
     using Microsoft.IdentityModel.Logging;
     using Microsoft.IdentityModel.Tokens;
     using Microsoft.OpenApi.Models;
@@ -30,6 +31,7 @@ namespace Task4ge.Server
     using Task4ge.Server.Dto.Task;
     using Task4ge.Server.UserManagement;
     using Task4ge.Server.Utils;
+    using Task4ge.Server.Utils.Secrets;
 
     public class Program
     {
@@ -231,9 +233,8 @@ namespace Task4ge.Server
 
                 // Configure AWS S3
                 Log.Information("Configuring AWS S3");
-                builder.Services.AddScoped<IAmazonS3>(_ => new AmazonS3Client(
-                    new BasicAWSCredentials(Environment.GetEnvironmentVariable("AWS_KEY_ID")!, Environment.GetEnvironmentVariable("AWS_KEY_SECRET")!),
-                    RegionEndpoint.USEast1));
+                AwsSettings? awsSettings = builder.Configuration.GetSection("Aws").Get<AwsSettings>();
+                builder.Services.AddScoped<IAmazonS3>(_ => new AmazonS3Client(new BasicAWSCredentials(awsSettings?.KeyId, awsSettings?.KeySecret), RegionEndpoint.USEast1));
 
                 // Build application
                 Log.Information("Building application");
