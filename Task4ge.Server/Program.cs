@@ -202,11 +202,12 @@ public class Program
 
             // Configure DB context
             Log.Information("Configuring database");
+            DbSettings? dbSettings = builder.Configuration.GetSection("Db").Get<DbSettings>();
             mongoConfig.ServerApi = new ServerApi(ServerApiVersion.V1);
             mongoConfig.SslSettings =
                 new SslSettings()
                 {
-                    ClientCertificates = [new(Environment.GetEnvironmentVariable("DB_CERTIFICATE_PATH")!, Environment.GetEnvironmentVariable("DB_CERTIFICATE_KEY")!)],
+                    ClientCertificates = [new(Environment.GetEnvironmentVariable("DB_CERTIFICATE_PATH")!, dbSettings?.CertificateKey)],
                 };
             MongoClient mongoClient = new(mongoConfig);
             builder.Services.AddSingleton(mongoClient);
