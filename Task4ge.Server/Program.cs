@@ -70,7 +70,7 @@ public class Program
         {
             // Create builder
             Log.Information("Starting server");
-            var builder = WebApplication.CreateBuilder(args);
+            WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 
             // Create logger
             builder.Host.UseSerilog((context, services, configuration) => configuration
@@ -165,10 +165,9 @@ public class Program
 
             // Authentication (Auth0 and JWT)
             JsonWebKeySet jwks;
-            using (var httpClient = new HttpClient())
+            using (HttpClient httpClient = new())
             {
-                var response = await httpClient.GetStringAsync(Environment.GetEnvironmentVariable("AUTH0_JWKS_ENDPOINT"));
-                jwks = JsonWebKeySet.Create(response);
+                jwks = JsonWebKeySet.Create(await httpClient.GetStringAsync(Environment.GetEnvironmentVariable("AUTH0_JWKS_ENDPOINT")));
             }
 
             builder.Services

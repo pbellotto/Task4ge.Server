@@ -16,17 +16,24 @@
 
 using Auth0.ManagementApi;
 using Auth0.ManagementApi.Models;
+using Task4ge.Server.Utils.Secrets;
 
 namespace Task4ge.Server.UserManagement;
 
-public sealed class Auth0Api : IAuth0Api
+public sealed class Auth0Api(IConfiguration configuration) : IAuth0Api
 {
-    private ManagementApiClient? client;
+    private readonly IConfiguration _configuration = configuration;
+    private ManagementApiClient? _client;
 
     private ManagementApiClient Client
     {
-        get => this.client ??= new ManagementApiClient(Environment.GetEnvironmentVariable("AUTH0_MANAGEMENT_API_TOKEN")!, new Uri(Environment.GetEnvironmentVariable("AUTH0_AUDIENCE")!));
-        set => this.client = value;
+        get
+        {
+            Auth0Settings? auth0Settings = _configuration.GetSection("Auth0").Get<Auth0Settings>();
+            return _client ??= new ManagementApiClient(auth0Settings?.ManagementApiToken, new Uri(Environment.GetEnvironmentVariable("AUTH0_AUDIENCE")!));
+        }
+
+        set => _client = value;
     }
 
     public async Task<User> Get(string id) => await this.Client.Users.GetAsync(id);
