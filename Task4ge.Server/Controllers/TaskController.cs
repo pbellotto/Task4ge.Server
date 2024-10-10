@@ -52,7 +52,7 @@ public class TaskController(ILogger<TaskController> logger, Context context, IAu
     public async Task<IActionResult> Get(string id)
     {
         var task = await _context.Tasks
-            .Where(x => x.Id == id.Trim())
+            .Where(x => x.Id == id)
             .OrderByDescending(x => x.Id)
             .FirstOrDefaultAsync();
         if (task is null)
@@ -63,18 +63,19 @@ public class TaskController(ILogger<TaskController> logger, Context context, IAu
         return Ok(
             new GetResponse()
             {
-                Id = task.Id,
+                Id = task.Id ?? string.Empty,
                 CreatedAt = task.CreatedAt,
                 UpdatedAt = task.UpdatedAt,
                 Name = task.Name,
                 Description = task.Description,
                 StartDate = task.StartDate,
                 EndDate = task.EndDate,
+                Images = task.Images,
                 Completed = task.Completed
             });
     }
 
-    [HttpGet($"/{nameof(GetAll)}")]
+    [HttpGet($"{nameof(this.GetAll)}")]
     [Authorize]
     [ProducesResponseType<List<GetAllResponse>>(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -86,13 +87,14 @@ public class TaskController(ILogger<TaskController> logger, Context context, IAu
             .Select(x =>
                 new GetAllResponse()
                 {
-                    Id = x.Id,
+                    Id = x.Id ?? string.Empty,
                     CreatedAt = x.CreatedAt,
                     UpdatedAt = x.UpdatedAt,
                     Name = x.Name,
                     Description = x.Description,
                     StartDate = x.StartDate,
                     EndDate = x.EndDate,
+                    Images = x.Images,
                     Completed = x.Completed
                 })
             .ToListAsync();
@@ -119,14 +121,23 @@ public class TaskController(ILogger<TaskController> logger, Context context, IAu
             return ValidationProblem(new ValidationProblemDetails(validation.ToDictionary()));
         }
 
+        IList<string> images = [];
+        foreach (var item in request.Images ?? [])
+        {
+            using MemoryStream stream = new();
+            await item.CopyToAsync(stream);
+            images.Add(await this.UploadImageToAmazonS3(stream));
+        }
+
         EntityEntry entry = await _context.AddAsync(
             new Database.Model.Task()
             {
-                User = this.User.Claims.FirstOrDefault(c => c.Type == ClaimTypes.NameIdentifier)!.Value,
+                User = this.User.Claims.FirstOrDefault(c => c.Type == ClaimTypes.NameIdentifier)?.Value ?? string.Empty,
                 Name = request.Name,
                 Description = request.Description,
                 StartDate = request.StartDate,
-                EndDate = request.EndDate
+                EndDate = request.EndDate,
+                Images = images
             });
         await _context.SaveChangesAsync();
         Database.Model.Task savedTask = (Database.Model.Task)entry.Entity;
@@ -134,9 +145,10 @@ public class TaskController(ILogger<TaskController> logger, Context context, IAu
             nameof(Post),
             new PostResponse()
             {
-                Id = savedTask.Id,
+                Id = savedTask.Id ?? string.Empty,
                 CreatedAt = savedTask.CreatedAt,
                 UpdatedAt = savedTask.UpdatedAt,
+                Images = savedTask.Images
             });
     }
 
@@ -156,10 +168,21 @@ public class TaskController(ILogger<TaskController> logger, Context context, IAu
             return ValidationProblem(new ValidationProblemDetails(validation.ToDictionary()));
         }
 
-        Database.Model.Task? existingTask = await _context.Tasks.FirstOrDefaultAsync(x => x.Id == request.Id);
+        Database.Model.Task? existingTask = await _context.Tasks
+            .Where(x => x.Id == request.Id)
+            .OrderByDescending(x => x.Id)
+            .FirstOrDefaultAsync();
         if (existingTask is null)
         {
             return NotFound();
+        }
+
+        IList<string> images = [];
+        foreach (var item in request.Images ?? [])
+        {
+            using MemoryStream stream = new();
+            await item.CopyToAsync(stream);
+            images.Add(await this.UploadImageToAmazonS3(stream));
         }
 
         existingTask.UpdatedAt = DateTime.Now;
@@ -179,7 +202,10 @@ public class TaskController(ILogger<TaskController> logger, Context context, IAu
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
     public async Task<IActionResult> Delete(string id)
     {
-        Database.Model.Task? task = await _context.Tasks.FirstOrDefaultAsync(x => x.Id == id);
+        var task = await _context.Tasks
+            .Where(x => x.Id == id)
+            .OrderByDescending(x => x.Id)
+            .FirstOrDefaultAsync();
         if (task is null)
         {
             return NotFound();

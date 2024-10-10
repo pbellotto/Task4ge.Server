@@ -21,4 +21,5 @@ public class PostResponse
     public required string Id { get; set; }
     public required DateTime CreatedAt { get; set; }
     public required DateTime UpdatedAt { get; set; }
+    public required IList<string> Images { get; set; }
 }

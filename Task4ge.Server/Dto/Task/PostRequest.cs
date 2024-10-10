@@ -23,7 +23,8 @@ public class PostRequest
     public required string Name { get; set; }
     public required string Description { get; set; }
     public DateTime? StartDate { get; set; }
-    public required DateTime EndDate { get; set; }
+    public DateTime? EndDate { get; set; }
+    public bool Completed { get; set; }
     public IFormFile[]? Images { get; set; }
 
     public class Validator : AbstractValidator<PostRequest>
@@ -42,6 +43,7 @@ public class PostRequest
                 .WithMessage("Start date must be less than or equal to start date.");
             this.RuleFor(x => x.EndDate)
                 .GreaterThanOrEqualTo(DateTime.Today)
+                .When(x => x.EndDate.HasValue)
                 .WithMessage("End date must be greater than or equal to today.");
         }
     }

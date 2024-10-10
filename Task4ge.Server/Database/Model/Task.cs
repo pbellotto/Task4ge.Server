@@ -25,32 +25,33 @@ public class Task
     [BsonId]
     [BsonRequired]
     [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
-    public string Id { get; set; } = string.Empty;
+    public string? Id { get; set; }
 
     [BsonRequired]
-    [BsonDateTimeOptions(Kind = DateTimeKind.Utc, Representation = BsonType.Document)]
+    [BsonDateTimeOptions(Kind = DateTimeKind.Utc, Representation = BsonType.DateTime)]
     public DateTime CreatedAt { get; set; } = DateTime.Now;
 
     [BsonRequired]
-    [BsonDateTimeOptions(Kind = DateTimeKind.Utc, Representation = BsonType.Document)]
+    [BsonDateTimeOptions(Kind = DateTimeKind.Utc, Representation = BsonType.DateTime)]
     public DateTime UpdatedAt { get; set; } = DateTime.Now;
 
     [BsonRequired]
-    public required string User { get; set; }
+    public string User { get; set; } = string.Empty;
 
     [BsonRequired]
-    public required string Name { get; set; }
+    public string Name { get; set; } = string.Empty;
 
     [BsonRequired]
-    public required string Description { get; set; }
+    public string Description { get; set; } = string.Empty;
 
-    [BsonRequired]
-    [BsonDateTimeOptions(Kind = DateTimeKind.Utc, Representation = BsonType.Document)]
+    [BsonDateTimeOptions(Kind = DateTimeKind.Utc, Representation = BsonType.DateTime)]
     public DateTime? StartDate { get; set; }
 
+    [BsonDateTimeOptions(Kind = DateTimeKind.Utc, Representation = BsonType.DateTime)]
+    public DateTime? EndDate { get; set; }
+
     [BsonRequired]
-    [BsonDateTimeOptions(Kind = DateTimeKind.Utc, Representation = BsonType.Document)]
-    public required DateTime EndDate { get; set; }
+    public IList<string> Images { get; set; } = [];
 
     [BsonRequired]
     public bool Completed { get; set; }
