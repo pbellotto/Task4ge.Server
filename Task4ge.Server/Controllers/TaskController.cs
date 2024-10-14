@@ -235,7 +235,6 @@ public class TaskController(ILogger<TaskController> logger, Context context, IAu
     private static async Task<string> CalculateImageMd5Async(Stream image)
     {
         using MD5 md5 = MD5.Create();
-        byte[] hash = await md5.ComputeHashAsync(image);
-        return Convert.ToBase64String(hash);
+        return Convert.ToBase64String(await md5.ComputeHashAsync(image));
     }
 }
