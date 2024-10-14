@@ -22,6 +22,15 @@ namespace Task4ge.Server.Database.Model;
 
 public class Task
 {
+    public enum PriorityEnum
+    {
+        VeryLow = 0,
+        Low = 1,
+        Normal = 2,
+        High = 3,
+        VeryHigh = 4
+    }
+
     [BsonId]
     [BsonRequired]
     [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
@@ -34,6 +43,9 @@ public class Task
     [BsonRequired]
     [BsonDateTimeOptions(Kind = DateTimeKind.Utc, Representation = BsonType.DateTime)]
     public DateTime UpdatedAt { get; set; } = DateTime.Now;
+
+    [BsonRequired]
+    public PriorityEnum Priority { get; set; }
 
     [BsonRequired]
     public string User { get; set; } = string.Empty;
@@ -51,8 +63,17 @@ public class Task
     public DateTime? EndDate { get; set; }
 
     [BsonRequired]
-    public IList<string> Images { get; set; } = [];
+    public IList<Image> Images { get; set; } = [];
 
     [BsonRequired]
     public bool Completed { get; set; }
+
+    public class Image
+    {
+        [BsonRequired]
+        public string Hash { get; set; } = string.Empty;
+
+        [BsonRequired]
+        public string Url { get; set; } = string.Empty;
+    }
 }

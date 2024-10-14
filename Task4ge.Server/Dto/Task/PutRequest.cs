@@ -21,6 +21,7 @@ namespace Task4ge.Server.Dto.Task;
 public class PutRequest
 {
     public required string Id { get; set; }
+    public Database.Model.Task.PriorityEnum Priority { get; set; }
     public required string Name { get; set; }
     public required string Description { get; set; }
     public DateTime? StartDate { get; set; }

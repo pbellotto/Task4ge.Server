@@ -20,6 +20,7 @@ namespace Task4ge.Server.Dto.Task;
 
 public class PostRequest
 {
+    public Database.Model.Task.PriorityEnum Priority { get; set; }
     public required string Name { get; set; }
     public required string Description { get; set; }
     public DateTime? StartDate { get; set; }

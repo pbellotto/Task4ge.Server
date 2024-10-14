@@ -16,8 +16,8 @@
 
 using System.Net.Mime;
 using System.Security.Claims;
+using System.Security.Cryptography;
 using Amazon.S3;
-using Amazon.S3.Transfer;
 using FluentValidation;
 using FluentValidation.Results;
 using Microsoft.AspNetCore.Authorization;
@@ -27,6 +27,7 @@ using Microsoft.EntityFrameworkCore.ChangeTracking;
 using MongoDB.Driver;
 using Task4ge.Server.Database;
 using Task4ge.Server.Dto.Task;
+using Task4ge.Server.Services;
 using Task4ge.Server.UserManagement;
 
 namespace Task4ge.Server.Controllers;
@@ -70,7 +71,7 @@ public class TaskController(ILogger<TaskController> logger, Context context, IAu
                 Description = task.Description,
                 StartDate = task.StartDate,
                 EndDate = task.EndDate,
-                Images = task.Images,
+                Images = task.Images.Select(x => x.Url).ToList(),
                 Completed = task.Completed
             });
     }
@@ -94,7 +95,7 @@ public class TaskController(ILogger<TaskController> logger, Context context, IAu
                     Description = x.Description,
                     StartDate = x.StartDate,
                     EndDate = x.EndDate,
-                    Images = x.Images,
+                    Images = x.Images.Select(x => x.Url).ToList(),
                     Completed = x.Completed
                 })
             .ToListAsync();
@@ -121,17 +122,27 @@ public class TaskController(ILogger<TaskController> logger, Context context, IAu
             return ValidationProblem(new ValidationProblemDetails(validation.ToDictionary()));
         }
 
-        IList<string> images = [];
-        foreach (var item in request.Images ?? [])
+        IList<Database.Model.Task.Image> images = [];
+        foreach (IFormFile item in request.Images ?? [])
         {
-            using MemoryStream stream = new();
-            await item.CopyToAsync(stream);
-            images.Add(await this.UploadImageToAmazonS3(stream));
+            if (item.Length <= 0)
+            {
+                continue;
+            }
+
+            using Stream stream = item.OpenReadStream();
+            images.Add(
+                new Database.Model.Task.Image()
+                {
+                    Hash = await CalculateImageMd5Async(stream),
+                    Url = await AmazonS3.UploadImageAsync(_amazonS3Client, stream, item.ContentType)
+                });
         }
 
         EntityEntry entry = await _context.AddAsync(
             new Database.Model.Task()
             {
+                Priority = request.Priority,
                 User = this.User.Claims.FirstOrDefault(c => c.Type == ClaimTypes.NameIdentifier)?.Value ?? string.Empty,
                 Name = request.Name,
                 Description = request.Description,
@@ -148,7 +159,7 @@ public class TaskController(ILogger<TaskController> logger, Context context, IAu
                 Id = savedTask.Id ?? string.Empty,
                 CreatedAt = savedTask.CreatedAt,
                 UpdatedAt = savedTask.UpdatedAt,
-                Images = savedTask.Images
+                Images = savedTask.Images.Select(x => x.Url).ToList()
             });
     }
 
@@ -177,15 +188,20 @@ public class TaskController(ILogger<TaskController> logger, Context context, IAu
             return NotFound();
         }
 
-        IList<string> images = [];
-        foreach (var item in request.Images ?? [])
+        IList<Database.Model.Task.Image> images = [];
+        foreach (IFormFile item in request.Images ?? [])
         {
-            using MemoryStream stream = new();
-            await item.CopyToAsync(stream);
-            images.Add(await this.UploadImageToAmazonS3(stream));
+            using Stream stream = item.OpenReadStream();
+            images.Add(
+                new Database.Model.Task.Image()
+                {
+                    Hash = await CalculateImageMd5Async(stream),
+                    Url = await AmazonS3.UploadImageAsync(_amazonS3Client, stream, item.ContentType)
+                });
         }
 
         existingTask.UpdatedAt = DateTime.Now;
+        existingTask.Priority = request.Priority;
         existingTask.Name = request.Name;
         existingTask.Description = request.Description;
         existingTask.StartDate = request.StartDate;
@@ -216,19 +232,10 @@ public class TaskController(ILogger<TaskController> logger, Context context, IAu
         return NoContent();
     }
 
-    private async Task<string> UploadImageToAmazonS3(Stream image)
+    private static async Task<string> CalculateImageMd5Async(Stream image)
     {
-        TransferUtility fileTransferUtility = new(_amazonS3Client);
-        string key = Guid.NewGuid().ToString();
-        await fileTransferUtility.UploadAsync(
-            new()
-            {
-                BucketName = "task4gebucket",
-                Key = key,
-                InputStream = image,
-                ContentType = "image/jpeg",
-                CannedACL = S3CannedACL.PublicRead,
-            });
-        return $"https://task4gebucket.s3.amazonaws.com/{key}";
+        using MD5 md5 = MD5.Create();
+        byte[] hash = await md5.ComputeHashAsync(image);
+        return Convert.ToBase64String(hash);
     }
 }
