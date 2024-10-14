@@ -18,8 +18,8 @@ namespace Task4ge.Server.Dto.Task;
 
 public class PostResponse
 {
-    public required string Id { get; set; }
-    public required DateTime CreatedAt { get; set; }
-    public required DateTime UpdatedAt { get; set; }
-    public required IList<string> Images { get; set; }
+    public string Id { get; set; } = string.Empty;
+    public DateTime CreatedAt { get; set; }
+    public DateTime UpdatedAt { get; set; }
+    public IList<string> Images { get; set; } = [];
 }

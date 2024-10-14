@@ -18,13 +18,13 @@ namespace Task4ge.Server.Dto.Task;
 
 public class GetResponse
 {
-    public required string Id { get; set; }
-    public required DateTime CreatedAt { get; set; }
-    public required DateTime UpdatedAt { get; set; }
-    public required string Name { get; set; }
-    public required string Description { get; set; }
+    public string Id { get; set; } = string.Empty;
+    public DateTime CreatedAt { get; set; }
+    public DateTime UpdatedAt { get; set; }
+    public string Name { get; set; } = string.Empty;
+    public string Description { get; set; } = string.Empty;
     public DateTime? StartDate { get; set; }
     public DateTime? EndDate { get; set; }
     public IList<string> Images { get; set; } = [];
-    public required bool Completed { get; set; }
+    public bool Completed { get; set; }
 }

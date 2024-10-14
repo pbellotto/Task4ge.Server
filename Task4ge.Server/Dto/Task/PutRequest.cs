@@ -20,12 +20,12 @@ namespace Task4ge.Server.Dto.Task;
 
 public class PutRequest
 {
-    public required string Id { get; set; }
+    public string Id { get; set; } = string.Empty;
     public Database.Model.Task.PriorityEnum Priority { get; set; }
-    public required string Name { get; set; }
-    public required string Description { get; set; }
+    public string Name { get; set; } = string.Empty;
+    public string Description { get; set; } = string.Empty;
     public DateTime? StartDate { get; set; }
-    public required DateTime EndDate { get; set; }
+    public DateTime EndDate { get; set; }
     public IFormFile[]? Images { get; set; }
 
     public class Validator : AbstractValidator<PutRequest>
