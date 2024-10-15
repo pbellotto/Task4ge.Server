@@ -141,7 +141,7 @@ public class TaskController(ILogger<TaskController> logger, Context context, IAu
                 });
         }
 
-        EntityEntry entry = await _context.AddAsync(
+        EntityEntry<Database.Model.Task> entry = await _context.AddAsync(
             new Database.Model.Task()
             {
                 Priority = request.Priority,
@@ -153,7 +153,10 @@ public class TaskController(ILogger<TaskController> logger, Context context, IAu
                 Images = images
             });
         await _context.SaveChangesAsync();
-        Database.Model.Task savedTask = (Database.Model.Task)entry.Entity;
+        Database.Model.Task savedTask = await _context.Tasks
+            .Where(x => x.Id == entry.Entity.Id)
+            .OrderByDescending(x => x.Id)
+            .FirstAsync();
         return CreatedAtAction(
             nameof(Post),
             new PostResponse()
@@ -181,11 +184,10 @@ public class TaskController(ILogger<TaskController> logger, Context context, IAu
             return ValidationProblem(new ValidationProblemDetails(validation.ToDictionary()));
         }
 
-        Database.Model.Task? existingTask = await _context.Tasks
+        if (!await _context.Tasks
             .Where(x => x.Id == request.Id)
             .OrderByDescending(x => x.Id)
-            .FirstOrDefaultAsync();
-        if (existingTask is null)
+            .AnyAsync())
         {
             return NotFound();
         }
@@ -202,12 +204,17 @@ public class TaskController(ILogger<TaskController> logger, Context context, IAu
                 });
         }
 
-        existingTask.UpdatedAt = DateTime.Now;
-        existingTask.Priority = request.Priority;
-        existingTask.Name = request.Name;
-        existingTask.Description = request.Description;
-        existingTask.StartDate = request.StartDate;
-        existingTask.EndDate = request.EndDate;
+        _context.Update(
+            new Database.Model.Task()
+            {
+                Id = request.Id,
+                Priority = request.Priority,
+                Name = request.Name,
+                Description = request.Description,
+                StartDate = request.StartDate,
+                EndDate = request.EndDate,
+                Images = images
+            });
         await _context.SaveChangesAsync();
         return NoContent();
     }
