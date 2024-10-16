@@ -22,7 +22,10 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Compile Update="UserManagement\Auth0Api.cs">
+    <Compile Update="Services\AmazonS3Api.cs">
+      <DependentUpon>IAmazonS3Api.cs</DependentUpon>
+    </Compile>
+    <Compile Update="Services\Auth0Api.cs">
       <DependentUpon>IAuth0Api.cs</DependentUpon>
     </Compile>
   </ItemGroup>

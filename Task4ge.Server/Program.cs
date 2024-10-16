@@ -20,6 +20,7 @@ using System.Text;
 using Amazon;
 using Amazon.Runtime;
 using Amazon.S3;
+using Auth0.ManagementApi;
 using FluentValidation;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
@@ -37,7 +38,7 @@ using Serilog.Events;
 using Serilog.Formatting.Compact;
 using Task4ge.Server.Database;
 using Task4ge.Server.Dto.Task;
-using Task4ge.Server.UserManagement;
+using Task4ge.Server.Services;
 using Task4ge.Server.Utils;
 using Task4ge.Server.Utils.Secrets;
 
@@ -91,8 +92,8 @@ public class Program
                     rollOnFileSizeLimit: true,
                     restrictedToMinimumLevel: LogEventLevel.Debug));
 
-            // Health checkers
-            Log.Information("Adding health checkers");
+            // Health checks
+            Log.Information("Adding health checks");
             MongoClientSettings mongoConfig = MongoClientSettings.FromConnectionString(builder.Configuration.GetConnectionString("MongoDB")!);
             string dbName = builder.Configuration.GetValue<string>("DBName")!;
             int dbConnectionTimeoutMs = int.Parse(Environment.GetEnvironmentVariable("DB_CONNECTION_TIMEOUT_MS")!);
@@ -145,22 +146,8 @@ public class Program
                         x.CustomSchemaIds(type => type.FullName?.Replace("+", "."));
                     });
 
-            // CORS
-            builder.Services
-                .AddCors(opt =>
-                {
-                    opt.AddPolicy(
-                        ALLOW_SPECIFIC_ORIGINS_POLICY,
-                        builder =>
-                        {
-                            builder
-                                .WithOrigins([Environment.GetEnvironmentVariable("CORS_ORIGIN_1")!])
-                                .AllowAnyHeader()
-                                .AllowAnyMethod()
-                                .AllowCredentials()
-                                .SetIsOriginAllowedToAllowWildcardSubdomains();
-                        });
-                });
+            // Configure CORS
+            ConfigureCors(builder);
 
             // Authentication (Auth0 and JWT)
             string? auth0Authority = Environment.GetEnvironmentVariable("AUTH0_AUTHORITY");
@@ -197,7 +184,6 @@ public class Program
                                     }
                             };
                     });
-            builder.Services.AddScoped<IAuth0Api, Auth0Api>();
 
             // Configure DB context
             Log.Information("Configuring database");
@@ -236,10 +222,8 @@ public class Program
             Log.Information("Adding validators");
             builder.Services.AddValidatorsFromAssemblyContaining<PostRequest.Validator>(ServiceLifetime.Scoped);
 
-            // Configure AWS S3
-            Log.Information("Configuring AWS S3");
-            AwsSettings? awsSettings = builder.Configuration.GetSection("Aws").Get<AwsSettings>();
-            builder.Services.AddScoped<IAmazonS3>(_ => new AmazonS3Client(new BasicAWSCredentials(awsSettings?.KeyId, awsSettings?.KeySecret), RegionEndpoint.USEast1));
+            // Configure APIs
+            ConfigureApis(builder);
 
             // Build application
             Log.Information("Building application");
@@ -281,5 +265,39 @@ public class Program
         {
             Log.CloseAndFlush();
         }
+    }
+
+    private static void ConfigureCors(WebApplicationBuilder builder)
+    {
+        builder.Services
+            .AddCors(opt =>
+            {
+                opt.AddPolicy(
+                    ALLOW_SPECIFIC_ORIGINS_POLICY,
+                    builder =>
+                    {
+                        builder
+                            .WithOrigins([Environment.GetEnvironmentVariable("CORS_ORIGIN_1")!])
+                            .AllowAnyHeader()
+                            .AllowAnyMethod()
+                            .AllowCredentials()
+                            .SetIsOriginAllowedToAllowWildcardSubdomains();
+                    });
+            });
+    }
+
+    private static void ConfigureApis(WebApplicationBuilder builder)
+    {
+        // Configure AWS S3
+        Log.Information("Configuring AWS S3");
+        AwsSettings? awsSettings = builder.Configuration.GetSection("Aws").Get<AwsSettings>();
+        builder.Services.AddScoped<IAmazonS3>(_ => new AmazonS3Client(new BasicAWSCredentials(awsSettings?.KeyId, awsSettings?.KeySecret), RegionEndpoint.USEast1));
+        builder.Services.AddScoped<IAmazonS3Api, AmazonS3Api>();
+
+        // Configure Auth0
+        Log.Information("Configuring Auth0");
+        Auth0Settings? auth0Settings = builder.Configuration.GetSection("Auth0").Get<Auth0Settings>();
+        builder.Services.AddScoped<IManagementApiClient>(_ => new ManagementApiClient(auth0Settings?.ManagementApiToken, new Uri(Environment.GetEnvironmentVariable("AUTH0_AUDIENCE")!)));
+        builder.Services.AddScoped<IAuth0Api, Auth0Api>();
     }
 }

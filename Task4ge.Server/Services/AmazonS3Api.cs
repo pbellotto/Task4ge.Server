@@ -20,13 +20,15 @@ using Amazon.S3.Transfer;
 
 namespace Task4ge.Server.Services;
 
-public static class AmazonS3
+public sealed class AmazonS3Api(IAmazonS3 client) : IAmazonS3Api
 {
     private const string BUCKET_NAME = "task4gebucket";
 
-    public static async Task<string> UploadImageAsync(IAmazonS3 client, Stream image, string contentType)
+    private readonly IAmazonS3 _client = client;
+
+    public async Task<string> UploadImageAsync(Stream image, string contentType)
     {
-        TransferUtility fileTransferUtility = new(client);
+        TransferUtility fileTransferUtility = new(_client);
         string key = Guid.NewGuid().ToString();
         await fileTransferUtility.UploadAsync(
             new()
@@ -40,9 +42,9 @@ public static class AmazonS3
         return $"https://task4gebucket.s3.amazonaws.com/{key}";
     }
 
-    public static async Task DeleteImageAsync(IAmazonS3 client, string key)
+    public async Task DeleteImageAsync(string key)
     {
-        await client.DeleteObjectAsync(
+        await _client.DeleteObjectAsync(
             new DeleteObjectRequest
             {
                 BucketName = BUCKET_NAME,

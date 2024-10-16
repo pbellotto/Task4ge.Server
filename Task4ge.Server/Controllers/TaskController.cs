@@ -17,7 +17,6 @@
 using System.Net.Mime;
 using System.Security.Claims;
 using System.Security.Cryptography;
-using Amazon.S3;
 using FluentValidation;
 using FluentValidation.Results;
 using Microsoft.AspNetCore.Authorization;
@@ -28,19 +27,18 @@ using MongoDB.Driver;
 using Task4ge.Server.Database;
 using Task4ge.Server.Dto.Task;
 using Task4ge.Server.Services;
-using Task4ge.Server.UserManagement;
 
 namespace Task4ge.Server.Controllers;
 
 [ApiController]
 [Route("[controller]")]
 [Produces(MediaTypeNames.Application.Json, MediaTypeNames.Application.ProblemJson)]
-public class TaskController(ILogger<TaskController> logger, Context context, IAuth0Api auth0Api, IAmazonS3 amazonS3Client) : ControllerBase
+public class TaskController(ILogger<TaskController> logger, Context context, IAmazonS3Api amazonS3Api, IAuth0Api auth0Api) : ControllerBase
 {
     private readonly ILogger<TaskController> _logger = logger;
     private readonly Context _context = context;
+    private readonly IAmazonS3Api _amazonS3Api = amazonS3Api;
     private readonly IAuth0Api _auth0Api = auth0Api;
-    private readonly IAmazonS3 _amazonS3Client = amazonS3Client;
 
     public ClaimsIdentity Identity => (ClaimsIdentity)this.User.Identity!;
 
@@ -77,15 +75,16 @@ public class TaskController(ILogger<TaskController> logger, Context context, IAu
             });
     }
 
-    [HttpGet($"{nameof(this.GetAll)}")]
+    [HttpGet($"{nameof(this.GetAllFromUser)}")]
     [Authorize]
     [ProducesResponseType<List<GetAllResponse>>(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
-    public async Task<IActionResult> GetAll()
+    public async Task<IActionResult> GetAllFromUser(string user)
     {
         var tasks = await _context.Tasks
+            .Where(x => x.User == user)
             .Select(x =>
                 new GetAllResponse()
                 {
@@ -137,7 +136,7 @@ public class TaskController(ILogger<TaskController> logger, Context context, IAu
                 new Database.Model.Task.Image()
                 {
                     Hash = await CalculateImageMd5Async(stream),
-                    Url = await AmazonS3.UploadImageAsync(_amazonS3Client, stream, item.ContentType)
+                    Url = await _amazonS3Api.UploadImageAsync(stream, item.ContentType)
                 });
         }
 
@@ -153,9 +152,17 @@ public class TaskController(ILogger<TaskController> logger, Context context, IAu
                 Images = images
             });
         await _context.SaveChangesAsync();
-        Database.Model.Task savedTask = await _context.Tasks
+        var savedTask = await _context.Tasks
             .Where(x => x.Id == entry.Entity.Id)
             .OrderByDescending(x => x.Id)
+            .Select(x =>
+                new
+                {
+                    x.Id,
+                    x.CreatedAt,
+                    x.UpdatedAt,
+                    x.Images
+                })
             .FirstAsync();
         return CreatedAtAction(
             nameof(Post),
@@ -200,7 +207,7 @@ public class TaskController(ILogger<TaskController> logger, Context context, IAu
                 new Database.Model.Task.Image()
                 {
                     Hash = await CalculateImageMd5Async(stream),
-                    Url = await AmazonS3.UploadImageAsync(_amazonS3Client, stream, item.ContentType)
+                    Url = await _amazonS3Api.UploadImageAsync(stream, item.ContentType)
                 });
         }
 

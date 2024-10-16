@@ -14,11 +14,11 @@
  * limitations under the License.
  */
 
-using Auth0.ManagementApi.Models;
+namespace Task4ge.Server.Services;
 
-namespace Task4ge.Server.UserManagement;
-
-public interface IAuth0Api
+public interface IAmazonS3Api
 {
-    Task<User> Get(string id);
+    Task<string> UploadImageAsync(Stream image, string contentType);
+
+    Task DeleteImageAsync(string key);
 }
