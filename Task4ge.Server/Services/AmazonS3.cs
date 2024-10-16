@@ -23,6 +23,7 @@ namespace Task4ge.Server.Services;
 public static class AmazonS3
 {
     private const string BUCKET_NAME = "task4gebucket";
+
     public static async Task<string> UploadImageAsync(IAmazonS3 client, Stream image, string contentType)
     {
         TransferUtility fileTransferUtility = new(client);
