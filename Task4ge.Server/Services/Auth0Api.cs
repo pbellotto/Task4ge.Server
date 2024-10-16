@@ -23,5 +23,7 @@ public sealed class Auth0Api(IManagementApiClient client) : IAuth0Api
 {
     private readonly IManagementApiClient _client = client;
 
-    public async Task<User> GetAsync(string id) => await _client.Users.GetAsync(id);
+    public async Task<User> GetUserAsync(string id) => await _client.Users.GetAsync(id);
+
+    public async Task SetUserPicture(string id, string picture) => await _client.Users.UpdateAsync(id, new UserUpdateRequest() { Picture = picture });
 }

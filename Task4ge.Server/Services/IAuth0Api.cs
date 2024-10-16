@@ -20,5 +20,6 @@ namespace Task4ge.Server.Services;
 
 public interface IAuth0Api
 {
-    Task<User> GetAsync(string id);
+    Task<User> GetUserAsync(string id);
+    Task SetUserPicture(string id, string picture);
 }
