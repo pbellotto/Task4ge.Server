@@ -24,6 +24,8 @@ using FluentValidation;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Logging;
+using Microsoft.IdentityModel.Protocols;
+using Microsoft.IdentityModel.Protocols.OpenIdConnect;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using MongoDB.Bson;
@@ -138,10 +140,7 @@ public class Program
                         x.AddSecurityRequirement(
                             new OpenApiSecurityRequirement()
                             {
-                                    {
-                                        jwtSecurityScheme,
-                                        Array.Empty<string>()
-                                    }
+                                { jwtSecurityScheme, Array.Empty<string>() }
                             });
                         x.CustomSchemaIds(type => type.FullName?.Replace("+", "."));
                     });
@@ -164,26 +163,27 @@ public class Program
                 });
 
             // Authentication (Auth0 and JWT)
-            JsonWebKeySet jwks;
-            using (HttpClient httpClient = new())
-            {
-                jwks = JsonWebKeySet.Create(await httpClient.GetStringAsync(Environment.GetEnvironmentVariable("AUTH0_JWKS_ENDPOINT")));
-            }
-
+            string? auth0Authority = Environment.GetEnvironmentVariable("AUTH0_AUTHORITY");
+            string? auth0Audience = Environment.GetEnvironmentVariable("AUTH0_AUDIENCE");
+            ConfigurationManager<OpenIdConnectConfiguration> configurationManager = new(
+                Environment.GetEnvironmentVariable("AUTH0_OPENID_CONFIGURATION"),
+                new OpenIdConnectConfigurationRetriever(),
+                new HttpDocumentRetriever());
+            OpenIdConnectConfiguration openIdConfig = await configurationManager.GetConfigurationAsync();
             builder.Services
                 .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
                 .AddJwtBearer(
                     opt =>
                     {
-                        opt.Authority = Environment.GetEnvironmentVariable("AUTH0_AUTHORITY");
-                        opt.Audience = Environment.GetEnvironmentVariable("AUTH0_AUDIENCE");
+                        opt.Authority = auth0Authority;
+                        opt.Audience = auth0Audience;
                         opt.TokenValidationParameters =
                             new TokenValidationParameters
                             {
-                                ValidAlgorithms = ["RS256"],
-                                ValidateIssuerSigningKey = true,
-                                IssuerSigningKeys = jwks.Keys,
-                                ValidateIssuer = true,
+                                ClockSkew = TimeSpan.FromMinutes(5),
+                                IssuerSigningKeys = openIdConfig.SigningKeys,
+                                ValidAudience = auth0Audience,
+                                ValidIssuer = auth0Authority,
                                 NameClaimType = ClaimTypes.NameIdentifier
                             };
                         opt.Events =
@@ -268,16 +268,7 @@ public class Program
             app.UseCors(ALLOW_SPECIFIC_ORIGINS_POLICY);
             app.UseAuthentication();
             app.UseAuthorization();
-            switch (app.Environment.IsDevelopment())
-            {
-                case true:
-                    app.MapControllers().AllowAnonymous();
-                    break;
-
-                default:
-                    app.MapControllers();
-                    break;
-            }
+            app.MapControllers();
 
             // Run app
             await app.RunAsync();
