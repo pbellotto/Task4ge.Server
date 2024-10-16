@@ -75,7 +75,7 @@ public class TaskController(ILogger<TaskController> logger, Context context, IAm
             });
     }
 
-    [HttpGet($"{nameof(this.GetAllFromUser)}")]
+    [HttpGet($"{nameof(this.GetAllFromUser)}/{{user}}")]
     [Authorize]
     [ProducesResponseType<List<GetAllResponse>>(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
