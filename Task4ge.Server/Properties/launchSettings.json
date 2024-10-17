@@ -39,7 +39,7 @@
         "DB_CONNECTION_TIMEOUT_MS": "8000",
         "LOGS_DIRECTORY_PATH": "./Logs",
         "AUTH0_AUTHORITY": "https://dev-qzxa0ik6gpza80ow.us.auth0.com/",
-        "AUTH0_AUDIENCE": "https://dev-qzxa0ik6gpza80ow.us.auth0.com/api/v2/",
+        "AUTH0_AUDIENCE": "https://task4ge.com/api/v2/",
         "AUTH0_OPENID_CONFIGURATION": "https://dev-qzxa0ik6gpza80ow.us.auth0.com/.well-known/openid-configuration"
       }
     },
@@ -54,7 +54,7 @@
         "DB_CONNECTION_TIMEOUT_MS": "8000",
         "LOGS_DIRECTORY_PATH": "./Logs",
         "AUTH0_AUTHORITY": "https://dev-qzxa0ik6gpza80ow.us.auth0.com/",
-        "AUTH0_AUDIENCE": "https://dev-qzxa0ik6gpza80ow.us.auth0.com/api/v2/",
+        "AUTH0_AUDIENCE": "https://task4ge.com/api/v2/",
         "AUTH0_OPENID_CONFIGURATION": "https://dev-qzxa0ik6gpza80ow.us.auth0.com/.well-known/openid-configuration"
       }
     }
