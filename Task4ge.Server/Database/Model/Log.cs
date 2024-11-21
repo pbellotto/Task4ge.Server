@@ -20,15 +20,13 @@ using MongoDB.Bson.Serialization.Attributes;
 
 namespace Task4ge.Server.Database.Model;
 
-public class Task
+public class Log
 {
-    public enum PriorityEnum
+    public enum TypeEnum
     {
-        VeryLow = 0,
-        Low = 1,
-        Normal = 2,
-        High = 3,
-        VeryHigh = 4
+        Insert = 0,
+        Update = 1,
+        Delete = 2
     }
 
     [BsonId]
@@ -45,26 +43,20 @@ public class Task
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 
     [BsonRequired]
-    public PriorityEnum Priority { get; set; }
+    public TypeEnum Type { get; set; }
 
     [BsonRequired]
     public string User { get; set; } = string.Empty;
 
     [BsonRequired]
-    public string Name { get; set; } = string.Empty;
+    public string UserIp { get; set; } = string.Empty;
 
     [BsonRequired]
-    public string Description { get; set; } = string.Empty;
-
-    [BsonDateTimeOptions(Kind = DateTimeKind.Utc, Representation = BsonType.DateTime)]
-    public DateTime? StartDate { get; set; }
-
-    [BsonDateTimeOptions(Kind = DateTimeKind.Utc, Representation = BsonType.DateTime)]
-    public DateTime? EndDate { get; set; }
+    public string? Model { get; set; }
 
     [BsonRequired]
-    public IList<string> ImagesIds { get; set; } = [];
+    public string? PreviousData { get; set; }
 
     [BsonRequired]
-    public bool Completed { get; set; }
+    public string? CurrentData { get; set; }
 }

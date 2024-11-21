@@ -20,17 +20,8 @@ using MongoDB.Bson.Serialization.Attributes;
 
 namespace Task4ge.Server.Database.Model;
 
-public class Task
+public class Image
 {
-    public enum PriorityEnum
-    {
-        VeryLow = 0,
-        Low = 1,
-        Normal = 2,
-        High = 3,
-        VeryHigh = 4
-    }
-
     [BsonId]
     [BsonRequired]
     [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
@@ -45,26 +36,8 @@ public class Task
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 
     [BsonRequired]
-    public PriorityEnum Priority { get; set; }
+    public string Hash { get; set; } = string.Empty;
 
     [BsonRequired]
-    public string User { get; set; } = string.Empty;
-
-    [BsonRequired]
-    public string Name { get; set; } = string.Empty;
-
-    [BsonRequired]
-    public string Description { get; set; } = string.Empty;
-
-    [BsonDateTimeOptions(Kind = DateTimeKind.Utc, Representation = BsonType.DateTime)]
-    public DateTime? StartDate { get; set; }
-
-    [BsonDateTimeOptions(Kind = DateTimeKind.Utc, Representation = BsonType.DateTime)]
-    public DateTime? EndDate { get; set; }
-
-    [BsonRequired]
-    public IList<string> ImagesIds { get; set; } = [];
-
-    [BsonRequired]
-    public bool Completed { get; set; }
+    public string Url { get; set; } = string.Empty;
 }

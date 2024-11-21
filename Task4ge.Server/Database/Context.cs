@@ -21,14 +21,15 @@ namespace Task4ge.Server.Database;
 
 public class Context(DbContextOptions options) : DbContext(options)
 {
+    public DbSet<Model.Image> Images { get; init; }
+    public DbSet<Model.Log> Logs { get; init; }
     public DbSet<Model.Task> Tasks { get; init; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
-        // Base
         base.OnModelCreating(modelBuilder);
-
-        // Tasks
+        modelBuilder.Entity<Model.Image>().ToCollection("images");
+        modelBuilder.Entity<Model.Log>().ToCollection("logs");
         modelBuilder.Entity<Model.Task>().ToCollection("tasks");
     }
 }

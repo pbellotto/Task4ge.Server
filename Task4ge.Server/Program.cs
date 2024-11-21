@@ -144,7 +144,8 @@ public class Program
                                 { jwtSecurityScheme, Array.Empty<string>() }
                             });
                         x.CustomSchemaIds(type => type.FullName?.Replace("+", "."));
-                    });
+                    })
+                .AddScoped<ILogControl, LogControl>();
 
             // Configure CORS
             ConfigureCors(builder);

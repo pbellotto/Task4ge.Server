@@ -14,13 +14,9 @@
  * limitations under the License.
  */
 
-namespace Task4ge.Server.Dto.Task;
+namespace Task4ge.Server.Services;
 
-public class GetAllResponse
+public interface ILogControl
 {
-    public string Id { get; set; } = string.Empty;
-    public string Name { get; set; } = string.Empty;
-    public string Description { get; set; } = string.Empty;
-    public DateTime? StartDate { get; set; }
-    public DateTime? EndDate { get; set; }
+    Task RegisterAsync(LogControl.RegisterArgs args);
 }
