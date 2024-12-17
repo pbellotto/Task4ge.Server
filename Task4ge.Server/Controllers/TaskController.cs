@@ -41,8 +41,7 @@ public class TaskController(ILogger<TaskController> logger, Context context, IAm
     private readonly IAuth0Api _auth0Api = auth0Api;
     private readonly ILogControl _logControl = logControl;
 
-    public ClaimsIdentity Identity => (ClaimsIdentity)this.User.Identity!;
-    public string LoggedUser => this.User.Claims.FirstOrDefault(c => c.Type == ClaimTypes.NameIdentifier)?.Value ?? string.Empty;
+    public string LoggedUser => this.User.Claims.FirstOrDefault(x => x.Type == ClaimTypes.NameIdentifier)?.Value ?? string.Empty;
 
     [HttpGet("{id}")]
     [Authorize]
@@ -127,15 +126,15 @@ public class TaskController(ILogger<TaskController> logger, Context context, IAm
         IList<ImageControl> imageControls = [];
         if (request.Images?.Length > 0)
         {
-            foreach (IFormFile item in request.Images.Where(x => x.Length > 0))
+            foreach (IFormFile image in request.Images.Where(x => x.Length > 0))
             {
-                Stream itemStream = item.OpenReadStream();
+                Stream imageStream = image.OpenReadStream();
                 imageControls.Add(
                     new ImageControl()
                     {
-                        Hash = await CalculateImageMd5Async(itemStream),
-                        Stream = itemStream,
-                        ContentType = item.ContentType
+                        Hash = await CalculateImageMd5Async(imageStream),
+                        Stream = imageStream,
+                        ContentType = image.ContentType
                     });
             }
         }
