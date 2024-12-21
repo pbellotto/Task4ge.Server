@@ -14,11 +14,9 @@
  * limitations under the License.
  */
 
-namespace Task4ge.Server.Services;
+namespace Task4ge.Server.Dto.Task;
 
-public interface IAmazonS3Api
+public class PutResponse
 {
-    Task<(string, string)> UploadImageAsync(Stream image, string contentType);
-
-    Task DeleteImageAsync(string key);
+    public List<string> Images { get; set; } = [];
 }

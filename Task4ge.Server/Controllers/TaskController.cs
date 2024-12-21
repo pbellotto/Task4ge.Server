@@ -51,7 +51,7 @@ public class TaskController(ILogger<TaskController> logger, Context context, IAm
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
     public async Task<IActionResult> Get(string id)
     {
-        var task = await _context.Tasks
+        Database.Model.Task? task = await _context.Tasks
             .Where(x => x.User == this.LoggedUser)
             .Where(x => x.Id == id)
             .OrderByDescending(x => x.Id)
@@ -88,7 +88,7 @@ public class TaskController(ILogger<TaskController> logger, Context context, IAm
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
     public async Task<IActionResult> GetAll()
     {
-        var tasks = await _context.Tasks
+        return Ok(await _context.Tasks
             .Where(x => x.User == this.LoggedUser)
             .Select(x =>
                 new GetAllResponse()
@@ -99,13 +99,7 @@ public class TaskController(ILogger<TaskController> logger, Context context, IAm
                     StartDate = x.StartDate,
                     EndDate = x.EndDate
                 })
-            .ToListAsync();
-        if (tasks.Count <= 0)
-        {
-            return NotFound();
-        }
-
-        return Ok(tasks);
+            .ToListAsync());
     }
 
     [HttpPost]
@@ -123,7 +117,7 @@ public class TaskController(ILogger<TaskController> logger, Context context, IAm
             return ValidationProblem(new ValidationProblemDetails(validation.ToDictionary()));
         }
 
-        IList<ImageControl> imageControls = [];
+        List<ImageControl> imageControls = [];
         if (request.Images?.Length > 0)
         {
             foreach (IFormFile image in request.Images.Where(x => x.Length > 0))
@@ -139,58 +133,9 @@ public class TaskController(ILogger<TaskController> logger, Context context, IAm
             }
         }
 
-        if (imageControls.Count > 0)
-        {
-            var hashes = imageControls.Select(x => x.Hash).Distinct();
-            var existentImagesLookup = _context.Images
-                .Where(x => hashes.Any(y => y == x.Hash))
-                .Select(x =>
-                    new
-                    {
-                        x.Id,
-                        x.Hash,
-                        x.Url
-                    })
-                .ToLookup(x => x.Hash);
-            foreach (ImageControl imageControl in imageControls)
-            {
-                var existentImage = existentImagesLookup[imageControl.Hash].FirstOrDefault();
-                if (existentImage is not null)
-                {
-                    imageControl.Id = existentImage.Id;
-                    imageControl.Url = existentImage.Url;
-                    continue;
-                }
-
-                Image imageAdd;
-                using (imageControl.Stream)
-                {
-                    imageControl.Url = await _amazonS3Api.UploadImageAsync(imageControl.Stream!, imageControl.ContentType);
-                    imageAdd =
-                        new()
-                        {
-                            Hash = imageControl.Hash,
-                            Url = imageControl.Url
-                        };
-                }
-
-                await _context.AddAsync(imageAdd);
-                await _logControl.RegisterAsync(
-                    new LogControl.RegisterArgs()
-                    {
-                        Type = Log.TypeEnum.Insert,
-                        User = this.LoggedUser,
-                        UserIp = HttpContext.Connection.RemoteIpAddress?.ToString() ?? string.Empty,
-                        Model = nameof(Image),
-                        CurrentObj = imageAdd,
-                        Save = false
-                    });
-                imageControl.Id = imageAdd.Id;
-            }
-        }
-
-        var taskAdd =
-            new Database.Model.Task()
+        await this.SaveImagesAsync(imageControls);
+        Database.Model.Task taskAdd =
+            new()
             {
                 Priority = request.Priority,
                 User = this.LoggedUser,
@@ -239,38 +184,69 @@ public class TaskController(ILogger<TaskController> logger, Context context, IAm
             return ValidationProblem(new ValidationProblemDetails(validation.ToDictionary()));
         }
 
-        var taskPrevious = await _context.Tasks
+        Database.Model.Task? taskPrevious = await _context.Tasks
             .Where(x => x.User == this.LoggedUser)
             .Where(x => x.Id == request.Id)
             .OrderByDescending(x => x.Id)
             .FirstOrDefaultAsync();
-        if (taskPrevious == null)
+        if (taskPrevious is null)
         {
             return NotFound();
         }
 
-        IList<Image> images = [];
-        foreach (IFormFile item in request.Images ?? [])
+        List<ImageControl> imageControls = [];
+        if (request.Images?.Length > 0)
         {
-            using Stream stream = item.OpenReadStream();
-            images.Add(
-                new Image()
-                {
-                    Hash = await CalculateImageMd5Async(stream),
-                    Url = await _amazonS3Api.UploadImageAsync(stream, item.ContentType)
-                });
+            foreach (IFormFile image in request.Images.Where(x => x.Length > 0))
+            {
+                Stream imageStream = image.OpenReadStream();
+                imageControls.Add(
+                    new ImageControl()
+                    {
+                        Hash = await CalculateImageMd5Async(imageStream),
+                        Stream = imageStream,
+                        ContentType = image.ContentType
+                    });
+            }
         }
 
-        var taskUpdate =
-            new Database.Model.Task()
+        List<ImageControl> savedImages = await _context.Images
+            .Where(x => taskPrevious.ImagesIds.Contains(x.Id!))
+            .Select(x =>
+                new ImageControl()
+                {
+                    Id = x.Id,
+                    Hash = x.Hash,
+                    Key = x.Key,
+                    Url = x.Url
+                })
+            .ToListAsync();
+        IEnumerable<ImageControl> imagesToDelete = savedImages.Where(x => !imageControls.Select(y => y.Hash).Contains(x.Hash));
+        if (imagesToDelete.Any())
+        {
+            await this.DeleteImagesAsync(imagesToDelete);
+        }
+
+        IEnumerable<ImageControl> imagesToAdd = imageControls.Where(x => !savedImages.Select(y => y.Hash).Contains(x.Hash));
+        if (imagesToAdd.Any())
+        {
+            await this.SaveImagesAsync(imagesToAdd);
+        }
+
+        IEnumerable<ImageControl> images = savedImages
+            .Where(x => !imagesToDelete.Any(y => y.Id == x.Id))
+            .Concat(imagesToAdd);
+        Database.Model.Task taskUpdate =
+            new()
             {
                 Id = request.Id,
+                User = this.LoggedUser,
                 Priority = request.Priority,
                 Name = request.Name,
                 Description = request.Description,
                 StartDate = request.StartDate,
                 EndDate = request.EndDate,
-                //Images = images
+                ImagesIds = images.Select(x => x.Id!).ToList()
             };
         _context.Update(taskUpdate);
         await _logControl.RegisterAsync(
@@ -285,7 +261,11 @@ public class TaskController(ILogger<TaskController> logger, Context context, IAm
                 Save = false
             });
         await _context.SaveChangesAsync();
-        return NoContent();
+        return Ok(
+            new PutResponse()
+            {
+                Images = images.Select(x => x.Url).ToList()
+            });
     }
 
     [HttpDelete("{id}")]
@@ -306,6 +286,16 @@ public class TaskController(ILogger<TaskController> logger, Context context, IAm
             return NotFound();
         }
 
+        List<ImageControl> imagesToDelete = await _context.Images
+            .Where(x => taskDelete.ImagesIds.Contains(x.Id!))
+            .Select(x =>
+                new ImageControl()
+                {
+                    Id = x.Id,
+                    Key = x.Key
+                })
+            .ToListAsync();
+        await this.DeleteImagesAsync(imagesToDelete);
         _context.Tasks.Remove(taskDelete);
         await _logControl.RegisterAsync(
             new LogControl.RegisterArgs()
@@ -327,12 +317,67 @@ public class TaskController(ILogger<TaskController> logger, Context context, IAm
         return Convert.ToBase64String(await md5.ComputeHashAsync(image));
     }
 
+    private async System.Threading.Tasks.Task SaveImagesAsync(IEnumerable<ImageControl> imageControls)
+    {
+        foreach (ImageControl imageControl in imageControls)
+        {
+            Image imageAdd;
+            using (imageControl.Stream)
+            {
+                (string, string) uploadedImageData = await _amazonS3Api.UploadImageAsync(imageControl.Stream!, imageControl.ContentType);
+                imageControl.Key = uploadedImageData.Item1;
+                imageControl.Url = uploadedImageData.Item2;
+                imageAdd =
+                    new()
+                    {
+                        Hash = imageControl.Hash,
+                        Key = imageControl.Key,
+                        Url = imageControl.Url
+                    };
+            }
+
+            await _context.AddAsync(imageAdd);
+            await _logControl.RegisterAsync(
+                new LogControl.RegisterArgs()
+                {
+                    Type = Log.TypeEnum.Insert,
+                    User = this.LoggedUser,
+                    UserIp = HttpContext.Connection.RemoteIpAddress?.ToString() ?? string.Empty,
+                    Model = nameof(Image),
+                    CurrentObj = imageAdd,
+                    Save = false
+                });
+            imageControl.Id = imageAdd.Id;
+        }
+    }
+
+    private async System.Threading.Tasks.Task DeleteImagesAsync(IEnumerable<ImageControl> imageControls)
+    {
+        foreach (ImageControl imageControl in imageControls)
+        {
+            await _amazonS3Api.DeleteImageAsync(imageControl.Key);
+            Image? imagePrevious = await _context.Images.Where(x => x.Id == imageControl.Id).FirstOrDefaultAsync();
+            _context.Images.Remove(new Image() { Id = imageControl.Id });
+            await _logControl.RegisterAsync(
+                new LogControl.RegisterArgs()
+                {
+                    Type = Log.TypeEnum.Delete,
+                    User = this.LoggedUser,
+                    UserIp = HttpContext.Connection.RemoteIpAddress?.ToString() ?? string.Empty,
+                    Model = nameof(Image),
+                    PreviousObj = imagePrevious,
+                    Save = false
+                });
+        }
+    }
+
     private class ImageControl
     {
         public string? Id { get; set; }
         public string Hash { get; set; } = string.Empty;
         public Stream? Stream { get; set; }
         public string ContentType { get; set; } = string.Empty;
+        public string Key { get; set; } = string.Empty;
         public string Url { get; set; } = string.Empty;
     }
 }

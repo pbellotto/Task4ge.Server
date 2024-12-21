@@ -232,8 +232,44 @@ public class Program
             app.Use(
                 async (context, next) =>
                 {
+                    // Security
+                    switch (!context.Request.IsHttps)
+                    {
+                        case true:
+                            context.Response.Headers.Remove("Strict-Transport-Security");
+                            break;
+
+                        default:
+                            context.Response.Headers.Append("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
+                            break;
+                    }
+
+                    context.Response.Headers.Append("Content-Security-Policy", "default-src 'self'; script-src 'self'; style-src 'self'");
+                    context.Response.Headers.Append("X-Content-Type-Options", "nosniff");
+                    context.Response.Headers.Append("X-Frame-Options", "DENY");
+                    context.Response.Headers.Append("X-XSS-Protection", "1; mode=block");
+
+                    // Performance
                     context.Response.Headers.Append("Cache-Control", "private, max-age=3600, must-revalidate");
+
+                    // Privacy
+                    context.Response.Headers.Append("Referrer-Policy", "no-referrer");
+                    context.Response.Headers.Append("Permissions-Policy", "geolocation=(), microphone=()");
+
+                    // Custom
                     context.Response.Headers.Append("X-Developed-By", "DevConn Software");
+
+                    // CORS (Preflight)
+                    if (context.Request.Method == HttpMethods.Options)
+                    {
+                        context.Response.Headers.Append("Access-Control-Allow-Origin", Environment.GetEnvironmentVariable("CORS_ORIGIN_1")!);
+                        context.Response.Headers.Append("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+                        context.Response.Headers.Append("Access-Control-Allow-Headers", "Content-Type, Authorization");
+                        context.Response.Headers.Append("Access-Control-Allow-Credentials", "true");
+                        context.Response.StatusCode = StatusCodes.Status204NoContent;
+                        return;
+                    }
+
                     await next();
                 });
             if (app.Environment.IsDevelopment())
@@ -281,8 +317,7 @@ public class Program
                             .WithOrigins([Environment.GetEnvironmentVariable("CORS_ORIGIN_1")!])
                             .AllowAnyHeader()
                             .AllowAnyMethod()
-                            .AllowCredentials()
-                            .SetIsOriginAllowedToAllowWildcardSubdomains();
+                            .AllowCredentials();
                     });
             });
     }

@@ -39,5 +39,8 @@ public class Image
     public string Hash { get; set; } = string.Empty;
 
     [BsonRequired]
+    public string Key { get; set; } = string.Empty;
+
+    [BsonRequired]
     public string Url { get; set; } = string.Empty;
 }

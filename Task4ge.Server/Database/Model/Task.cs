@@ -63,7 +63,7 @@ public class Task
     public DateTime? EndDate { get; set; }
 
     [BsonRequired]
-    public IList<string> ImagesIds { get; set; } = [];
+    public List<string> ImagesIds { get; set; } = [];
 
     [BsonRequired]
     public bool Completed { get; set; }

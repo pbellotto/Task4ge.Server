@@ -26,7 +26,7 @@ public sealed class AmazonS3Api(IAmazonS3 client) : IAmazonS3Api
 
     private readonly IAmazonS3 _client = client;
 
-    public async Task<string> UploadImageAsync(Stream image, string contentType)
+    public async Task<(string, string)> UploadImageAsync(Stream image, string contentType)
     {
         TransferUtility fileTransferUtility = new(_client);
         string key = Guid.NewGuid().ToString();
@@ -37,9 +37,9 @@ public sealed class AmazonS3Api(IAmazonS3 client) : IAmazonS3Api
                 Key = key,
                 InputStream = image,
                 ContentType = contentType,
-                CannedACL = S3CannedACL.PublicRead
+                CannedACL = S3CannedACL.PublicRead,
             });
-        return $"https://task4gebucket.s3.amazonaws.com/{key}";
+        return (key, $"https://task4gebucket.s3.amazonaws.com/{key}");
     }
 
     public async Task DeleteImageAsync(string key)
